@@ -65,6 +65,17 @@ var (
 		ocikms.EnvVaultOciKmsSealManagementEndpoint: "management_endpoint",
 	}
 
+	StackitKMSEnvVars = map[string]string{
+		"STACKITKMS_PROJECT_ID":         "project_id",
+		"STACKITKMS_REGION":             "region",
+		"STACKITKMS_KEY_RING_ID":        "key_ring_id",
+		"STACKITKMS_KEY_ID":             "key_id",
+		"STACKITKMS_KEY_VERSION":        "key_version",
+		"STACKITKMS_ENDPOINT":           "endpoint",
+		"STACKIT_SERVICE_ACCOUNT_EMAIL": "service_account_email",
+		"STACKIT_FEDERATED_TOKEN_FILE":  "federated_token_file",
+	}
+
 	TransitEnvVars = map[string]string{
 		"VAULT_ADDR":                              "address",
 		"VAULT_TOKEN":                             "token",

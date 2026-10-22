@@ -64,6 +64,29 @@ func Test_getEnvConfig(t *testing.T) {
 			map[string]string{"key_id": "test_key_id", "crypto_endpoint": "test_crypto_endpoint", "management_endpoint": "test_management_endpoint"},
 		},
 		{
+			"STACKIT KMS wrapper",
+			&KMS{
+				Type:     "stackitkms",
+				Priority: 1,
+			},
+			map[string]string{
+				"STACKITKMS_PROJECT_ID":         "test_project_id",
+				"STACKITKMS_REGION":             "eu01",
+				"STACKITKMS_KEY_RING_ID":        "test_key_ring_id",
+				"STACKITKMS_KEY_ID":             "test_key_id",
+				"STACKIT_SERVICE_ACCOUNT_EMAIL": "vault@sa.stackit.cloud",
+				"STACKIT_FEDERATED_TOKEN_FILE":  "/var/run/secrets/stackit.cloud/serviceaccount/token",
+			},
+			map[string]string{
+				"project_id":            "test_project_id",
+				"region":                "eu01",
+				"key_ring_id":           "test_key_ring_id",
+				"key_id":                "test_key_id",
+				"service_account_email": "vault@sa.stackit.cloud",
+				"federated_token_file":  "/var/run/secrets/stackit.cloud/serviceaccount/token",
+			},
+		},
+		{
 			"Transit wrapper",
 			&KMS{
 				Type:     "transit",
@@ -243,6 +266,27 @@ seal "ocikms" {
 				"auth_type_api_key":   "true",
 			},
 		},
+		"stackitkms": {
+			config: `
+seal "stackitkms" {
+  project_id                  = "11111111-1111-1111-1111-111111111111"
+  region                      = "eu01"
+  key_ring_id                 = "22222222-2222-2222-2222-222222222222"
+  key_id                      = "33333333-3333-3333-3333-333333333333"
+  workload_identity_federation = true
+  service_account_email       = "vault@sa.stackit.cloud"
+  federated_token_file        = "/var/run/secrets/stackit.cloud/serviceaccount/token"
+}`,
+			expected: map[string]string{
+				"project_id":                   "11111111-1111-1111-1111-111111111111",
+				"region":                       "eu01",
+				"key_ring_id":                  "22222222-2222-2222-2222-222222222222",
+				"key_id":                       "33333333-3333-3333-3333-333333333333",
+				"workload_identity_federation": "1",
+				"service_account_email":        "vault@sa.stackit.cloud",
+				"federated_token_file":         "/var/run/secrets/stackit.cloud/serviceaccount/token",
+			},
+		},
 		"transit ipv4": {
 			config: `
 seal "transit" {
@@ -396,6 +440,27 @@ func TestMergeKMSEnvConfigAddrConformance(t *testing.T) {
 				"crypto_endpoint":     "https://[2001:db8::2:1]/afnxza26aag4s-crypto",
 				"management_endpoint": "https://[2001:db8::2:1]/afnxza26aag4s-management",
 				"auth_type_api_key":   "true",
+			},
+		},
+		"stackitkms endpoint": {
+			sealType: "stackitkms",
+			kmsConfig: map[string]string{
+				"project_id":                   "11111111-1111-1111-1111-111111111111",
+				"region":                       "eu01",
+				"key_ring_id":                  "22222222-2222-2222-2222-222222222222",
+				"key_id":                       "33333333-3333-3333-3333-333333333333",
+				"workload_identity_federation": "true",
+			},
+			envVars: map[string]string{
+				"STACKITKMS_ENDPOINT": "https://[2001:db8:0:0:0:0:2:1]/v1",
+			},
+			expected: map[string]string{
+				"project_id":                   "11111111-1111-1111-1111-111111111111",
+				"region":                       "eu01",
+				"key_ring_id":                  "22222222-2222-2222-2222-222222222222",
+				"key_id":                       "33333333-3333-3333-3333-333333333333",
+				"workload_identity_federation": "true",
+				"endpoint":                     "https://[2001:db8::2:1]/v1",
 			},
 		},
 		"transit addr not in config": {

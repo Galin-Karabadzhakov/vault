@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/go-kms-wrapping/wrappers/azurekeyvault/v2"
 	"github.com/hashicorp/go-kms-wrapping/wrappers/gcpckms/v2"
 	"github.com/hashicorp/go-kms-wrapping/wrappers/ocikms/v2"
+	"github.com/hashicorp/go-kms-wrapping/wrappers/stackitkms/v2"
 	"github.com/hashicorp/go-kms-wrapping/wrappers/transit/v2"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/go-secure-stdlib/parseutil"
@@ -38,6 +39,8 @@ var (
 	CreateSecureRandomReaderFunc = createSecureRandomReader
 	GetEnvConfigFunc             = getEnvConfig
 )
+
+const wrapperTypeStackitKms wrapping.WrapperType = "stackitkms"
 
 //go:generate enumer -type=EntropyMode -trimprefix=Entropy
 
@@ -230,6 +233,7 @@ var kmsSealAddressKeys = map[string][]string{
 	wrapping.WrapperTypeGcpCkms.String():       {},
 	wrapping.WrapperTypeOciKms.String():        {"key_id", "crypto_endpoint", "management_endpoint"},
 	wrapping.WrapperTypePkcs11.String():        {},
+	wrapperTypeStackitKms.String():             {"endpoint"},
 	wrapping.WrapperTypeTransit.String():       {"address"},
 }
 
@@ -309,6 +313,8 @@ func configureWrapper(configKMS *KMS, infoKeys *[]string, info *map[string]strin
 			opts = append(opts, wrapping.WithKeyId(keyId))
 		}
 		wrapper, kmsInfo, err = GetOCIKMSKMSFunc(configKMS, opts...)
+	case wrapperTypeStackitKms:
+		wrapper, kmsInfo, err = GetStackitKMSFunc(configKMS, opts...)
 	case wrapping.WrapperTypeTransit:
 		wrapper, kmsInfo, err = GetTransitKMSFunc(configKMS, opts...)
 
@@ -443,6 +449,26 @@ func GetOCIKMSKMSFunc(kms *KMS, opts ...wrapping.Option) (wrapping.Wrapper, map[
 	return wrapper, info, nil
 }
 
+func GetStackitKMSFunc(kms *KMS, opts ...wrapping.Option) (wrapping.Wrapper, map[string]string, error) {
+	wrapper := stackitkms.NewWrapper()
+	wrapperInfo, err := wrapper.SetConfig(context.Background(), append(opts, wrapping.WithDisallowEnvVars(true), wrapping.WithConfigMap(kms.Config))...)
+	if err != nil {
+		return nil, nil, err
+	}
+	info := make(map[string]string)
+	if wrapperInfo != nil {
+		info["STACKIT KMS Project ID"] = wrapperInfo.Metadata["project_id"]
+		info["STACKIT KMS Region"] = wrapperInfo.Metadata["region"]
+		info["STACKIT KMS Key Ring ID"] = wrapperInfo.Metadata["key_ring_id"]
+		info["STACKIT KMS Key ID"] = wrapperInfo.Metadata["key_id"]
+		info["STACKIT KMS Key Version"] = wrapperInfo.Metadata["key_version"]
+		if endpoint, ok := wrapperInfo.Metadata["endpoint"]; ok {
+			info["STACKIT KMS Endpoint"] = endpoint
+		}
+	}
+	return wrapper, info, nil
+}
+
 var GetTransitKMSFunc = func(kms *KMS, opts ...wrapping.Option) (wrapping.Wrapper, map[string]string, error) {
 	wrapper := transit.NewWrapper()
 	var prefix string
@@ -493,6 +519,8 @@ func getEnvConfig(kms *KMS) map[string]string {
 		wrapperEnvVars = GCPCKMSEnvVars
 	case wrapping.WrapperTypeOciKms:
 		wrapperEnvVars = OCIKMSEnvVars
+	case wrapperTypeStackitKms:
+		wrapperEnvVars = StackitKMSEnvVars
 	case wrapping.WrapperTypeTransit:
 		wrapperEnvVars = TransitEnvVars
 	default:

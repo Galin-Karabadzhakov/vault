@@ -1,0 +1,3 @@
+```release-note:feature
+core/seal: Add STACKIT Key Management Service (`stackitkms`) auto-unseal seal type.
+```
