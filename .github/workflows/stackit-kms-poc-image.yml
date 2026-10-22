@@ -1,7 +1,9 @@
 name: STACKIT KMS PoC image
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - feat/stackit-kms-auto-unseal
 
 permissions:
   contents: read
