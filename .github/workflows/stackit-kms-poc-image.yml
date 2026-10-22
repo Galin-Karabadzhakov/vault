@@ -28,7 +28,9 @@ jobs:
           CGO_ENABLED: "0"
           GOOS: linux
           GOARCH: amd64
-        run: go build -trimpath -ldflags "-s -w" -o vault .
+        run: |
+          mkdir -p dist
+          go build -trimpath -ldflags "-s -w" -o dist/vault .
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3

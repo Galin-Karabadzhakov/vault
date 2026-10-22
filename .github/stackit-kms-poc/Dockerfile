@@ -6,7 +6,7 @@ RUN apk add --no-cache ca-certificates dumb-init libcap su-exec tzdata \
     && mkdir -p /vault/config /vault/data /vault/logs \
     && chown -R vault:vault /vault
 
-COPY vault /bin/vault
+COPY dist/vault /bin/vault
 COPY .release/docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN chmod 0755 /bin/vault /usr/local/bin/docker-entrypoint.sh
