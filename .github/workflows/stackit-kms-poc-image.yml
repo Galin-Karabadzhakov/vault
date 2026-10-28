@@ -54,7 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dist/vault server \
+          VAULT_UI=true dist/vault server \
             -dev \
             -dev-root-token-id=validation-root \
             -dev-listen-address=127.0.0.1:18200 \
@@ -71,7 +71,8 @@ jobs:
           done
 
           if [[ ! -s "${RUNNER_TEMP}/vault-ui.html" ]]; then
-            cat "${RUNNER_TEMP}/vault.log" >&2
+            sed -E 's/^(Unseal Key|Root Token):.*/\1: [REDACTED]/' \
+              "${RUNNER_TEMP}/vault.log" >&2
             exit 1
           fi
           if grep --quiet "Vault UI is not available in this binary" \
