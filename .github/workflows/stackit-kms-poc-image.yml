@@ -91,7 +91,11 @@ jobs:
           dist/vault operator unseal "${unseal_key}" >/dev/null
           unset unseal_key
 
-          http_status=$(curl --location --max-time 5 --silent --show-error \
+          # Vault serves the embedded UI from a compressed asset. Ignore the
+          # declared length so a server-side connection close does not make
+          # curl discard an otherwise valid HTML response.
+          http_status=$(curl --location --ignore-content-length \
+            --max-time 10 --silent --show-error \
             --write-out '%{http_code}' \
             http://127.0.0.1:18200/ui/ \
             --output "${RUNNER_TEMP}/vault-ui.html")
