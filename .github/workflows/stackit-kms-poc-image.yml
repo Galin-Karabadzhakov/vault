@@ -54,16 +54,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VAULT_UI=true dist/vault server \
-            -dev \
-            -dev-root-token-id=validation-root \
-            -dev-listen-address=127.0.0.1:18200 \
+          cat >"${RUNNER_TEMP}/vault.hcl" <<'EOF'
+          ui = true
+          disable_mlock = true
+
+          listener "tcp" {
+            address = "127.0.0.1:18200"
+            tls_disable = true
+          }
+
+          storage "inmem" {}
+          EOF
+
+          dist/vault server -config="${RUNNER_TEMP}/vault.hcl" \
             >"${RUNNER_TEMP}/vault.log" 2>&1 &
           vault_pid=$!
           trap 'kill "${vault_pid}" 2>/dev/null || true' EXIT
 
           for _ in {1..30}; do
-            if curl --fail --location --silent http://127.0.0.1:18200/ui/ \
+            if curl --fail --location --max-time 2 --silent \
+              http://127.0.0.1:18200/ui/ \
               --output "${RUNNER_TEMP}/vault-ui.html"; then
               break
             fi
@@ -71,8 +81,7 @@ jobs:
           done
 
           if [[ ! -s "${RUNNER_TEMP}/vault-ui.html" ]]; then
-            sed -E 's/^(Unseal Key|Root Token):.*/\1: [REDACTED]/' \
-              "${RUNNER_TEMP}/vault.log" >&2
+            cat "${RUNNER_TEMP}/vault.log" >&2
             exit 1
           fi
           if grep --quiet "Vault UI is not available in this binary" \
