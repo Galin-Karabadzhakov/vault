@@ -998,6 +998,10 @@ func (nrw *nonceResponseWriter) WriteHeader(statusCode int) {
 		return
 	}
 	nrw.wroteHeader = true
+	// The nonce injected during flush changes the response size. FileServer
+	// sets Content-Length before calling WriteHeader, so retaining it causes
+	// net/http to reject the larger body with ErrContentLength.
+	nrw.ResponseWriter.Header().Del("Content-Length")
 	nrw.ResponseWriter.WriteHeader(statusCode)
 }
 

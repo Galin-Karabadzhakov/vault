@@ -39,7 +39,10 @@ jobs:
       - name: Build Vault UI
         env:
           GOWORK: "off"
-        run: make ci-build-ui
+        run: |
+          make ci-build-ui
+          test -s http/web_ui/index.html
+          grep --ignore-case --quiet '<!doctype html>' http/web_ui/index.html
 
       - name: Build Vault
         env:
@@ -109,11 +112,8 @@ jobs:
             exit 1
           fi
 
-          # Vault serves the embedded UI from a compressed asset. Ignore the
-          # declared length so a server-side connection close does not make
-          # curl discard an otherwise valid HTML response.
-          http_status=$(curl --location --ignore-content-length \
-            --max-time 10 --silent --show-error \
+          http_status=$(curl --location --max-time 10 \
+            --silent --show-error \
             --write-out '%{http_code}' \
             http://127.0.0.1:18200/ui/ \
             --output "${RUNNER_TEMP}/vault-ui.html")
@@ -135,6 +135,8 @@ jobs:
             head --bytes=256 "${RUNNER_TEMP}/vault-ui.html" >&2
             exit 1
           fi
+          grep --quiet '<meta name="csp-nonce" content="' \
+            "${RUNNER_TEMP}/vault-ui.html"
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3

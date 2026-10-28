@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -728,6 +729,25 @@ func TestHandler_ui_enabled(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 	testResponseStatus(t, resp, 200)
+}
+
+func TestNonceResponseWriter_RemovesStaleContentLength(t *testing.T) {
+	body := []byte("<!DOCTYPE html><html><head></head><body>Vault</body></html>")
+	recorder := httptest.NewRecorder()
+	recorder.Header().Set("Content-Length", strconv.Itoa(len(body)))
+
+	w := &nonceResponseWriter{
+		ResponseWriter: recorder,
+		nonce:          "test-nonce",
+	}
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write(body)
+	require.NoError(t, err)
+	w.flush()
+
+	require.Empty(t, recorder.Header().Get("Content-Length"))
+	require.Contains(t, recorder.Body.String(), `<meta name="csp-nonce" content="test-nonce">`)
+	require.Contains(t, recorder.Body.String(), "<body>Vault</body>")
 }
 
 func TestHandler_error(t *testing.T) {
