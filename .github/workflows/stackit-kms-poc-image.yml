@@ -91,6 +91,24 @@ jobs:
           dist/vault operator unseal "${unseal_key}" >/dev/null
           unset unseal_key
 
+          vault_ready=false
+          for _ in {1..30}; do
+            health_status=$(curl --max-time 2 --silent \
+              --write-out '%{http_code}' \
+              http://127.0.0.1:18200/v1/sys/health \
+              --output /dev/null || true)
+            if [[ "${health_status}" == "200" ]]; then
+              vault_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [[ "${vault_ready}" != "true" ]]; then
+            echo "Vault did not become ready after unseal" >&2
+            cat "${RUNNER_TEMP}/vault.log" >&2
+            exit 1
+          fi
+
           # Vault serves the embedded UI from a compressed asset. Ignore the
           # declared length so a server-side connection close does not make
           # curl discard an otherwise valid HTML response.
