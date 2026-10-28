@@ -99,14 +99,24 @@ jobs:
             --write-out '%{http_code}' \
             http://127.0.0.1:18200/ui/ \
             --output "${RUNNER_TEMP}/vault-ui.html")
-          [[ "${http_status}" == "200" ]]
-          test -s "${RUNNER_TEMP}/vault-ui.html"
+          echo "Vault UI HTTP status: ${http_status}"
+          wc --bytes "${RUNNER_TEMP}/vault-ui.html"
+          if [[ "${http_status}" != "200" ]] || \
+            [[ ! -s "${RUNNER_TEMP}/vault-ui.html" ]]; then
+            cat "${RUNNER_TEMP}/vault.log" >&2
+            exit 1
+          fi
           if grep --quiet "Vault UI is not available in this binary" \
             "${RUNNER_TEMP}/vault-ui.html"; then
             echo "Vault binary does not contain the embedded UI" >&2
             exit 1
           fi
-          grep --quiet '<!DOCTYPE html>' "${RUNNER_TEMP}/vault-ui.html"
+          if ! grep --ignore-case --quiet '<!doctype html>' \
+            "${RUNNER_TEMP}/vault-ui.html"; then
+            echo "Vault UI response is not HTML" >&2
+            head --bytes=256 "${RUNNER_TEMP}/vault-ui.html" >&2
+            exit 1
+          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
