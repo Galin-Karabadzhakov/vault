@@ -86,10 +86,10 @@ jobs:
             -key-shares=1 \
             -key-threshold=1 \
             -format=json >"${RUNNER_TEMP}/vault-init.json"
-          jq --raw-output '.unseal_keys_b64[0]' \
-            "${RUNNER_TEMP}/vault-init.json" >"${RUNNER_TEMP}/vault-unseal-key"
-          dist/vault operator unseal \
-            <"${RUNNER_TEMP}/vault-unseal-key" >/dev/null
+          unseal_key=$(jq --raw-output '.unseal_keys_b64[0]' \
+            "${RUNNER_TEMP}/vault-init.json")
+          dist/vault operator unseal "${unseal_key}" >/dev/null
+          unset unseal_key
 
           http_status=$(curl --location --max-time 5 --silent --show-error \
             --write-out '%{http_code}' \
