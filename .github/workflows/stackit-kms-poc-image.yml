@@ -72,18 +72,31 @@ jobs:
           trap 'kill "${vault_pid}" 2>/dev/null || true' EXIT
 
           for _ in {1..30}; do
-            if curl --fail --location --max-time 2 --silent \
-              http://127.0.0.1:18200/ui/ \
-              --output "${RUNNER_TEMP}/vault-ui.html"; then
+            if curl --max-time 2 --silent \
+              http://127.0.0.1:18200/v1/sys/health \
+              --output /dev/null; then
               break
             fi
             sleep 1
           done
 
-          if [[ ! -s "${RUNNER_TEMP}/vault-ui.html" ]]; then
-            cat "${RUNNER_TEMP}/vault.log" >&2
-            exit 1
-          fi
+          umask 077
+          export VAULT_ADDR=http://127.0.0.1:18200
+          dist/vault operator init \
+            -key-shares=1 \
+            -key-threshold=1 \
+            -format=json >"${RUNNER_TEMP}/vault-init.json"
+          jq --raw-output '.unseal_keys_b64[0]' \
+            "${RUNNER_TEMP}/vault-init.json" >"${RUNNER_TEMP}/vault-unseal-key"
+          dist/vault operator unseal \
+            <"${RUNNER_TEMP}/vault-unseal-key" >/dev/null
+
+          http_status=$(curl --location --max-time 5 --silent --show-error \
+            --write-out '%{http_code}' \
+            http://127.0.0.1:18200/ui/ \
+            --output "${RUNNER_TEMP}/vault-ui.html")
+          [[ "${http_status}" == "200" ]]
+          test -s "${RUNNER_TEMP}/vault-ui.html"
           if grep --quiet "Vault UI is not available in this binary" \
             "${RUNNER_TEMP}/vault-ui.html"; then
             echo "Vault binary does not contain the embedded UI" >&2
