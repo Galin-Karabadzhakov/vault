@@ -63,14 +63,17 @@ jobs:
           trap 'kill "${vault_pid}" 2>/dev/null || true' EXIT
 
           for _ in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:18200/ui/ \
+            if curl --fail --location --silent http://127.0.0.1:18200/ui/ \
               --output "${RUNNER_TEMP}/vault-ui.html"; then
               break
             fi
             sleep 1
           done
 
-          test -s "${RUNNER_TEMP}/vault-ui.html"
+          if [[ ! -s "${RUNNER_TEMP}/vault-ui.html" ]]; then
+            cat "${RUNNER_TEMP}/vault.log" >&2
+            exit 1
+          fi
           if grep --quiet "Vault UI is not available in this binary" \
             "${RUNNER_TEMP}/vault-ui.html"; then
             echo "Vault binary does not contain the embedded UI" >&2
