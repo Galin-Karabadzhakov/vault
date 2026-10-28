@@ -25,6 +25,22 @@ jobs:
           go-version-file: .go-version
           cache: true
 
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ui/package.json
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190bca9 # v6.0.9
+        with:
+          run_install: false
+          package_json_file: ./ui/package.json
+
+      - name: Build Vault UI
+        env:
+          GOWORK: "off"
+        run: make ci-build-ui
+
       - name: Build Vault
         env:
           CGO_ENABLED: "0"
@@ -32,7 +48,35 @@ jobs:
           GOARCH: amd64
         run: |
           mkdir -p dist
-          go build -trimpath -ldflags "-s -w" -o dist/vault .
+          go build -trimpath -tags ui -ldflags "-s -w" -o dist/vault .
+
+      - name: Verify embedded Vault UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          dist/vault server \
+            -dev \
+            -dev-root-token-id=validation-root \
+            -dev-listen-address=127.0.0.1:18200 \
+            >"${RUNNER_TEMP}/vault.log" 2>&1 &
+          vault_pid=$!
+          trap 'kill "${vault_pid}" 2>/dev/null || true' EXIT
+
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18200/ui/ \
+              --output "${RUNNER_TEMP}/vault-ui.html"; then
+              break
+            fi
+            sleep 1
+          done
+
+          test -s "${RUNNER_TEMP}/vault-ui.html"
+          if grep --quiet "Vault UI is not available in this binary" \
+            "${RUNNER_TEMP}/vault-ui.html"; then
+            echo "Vault binary does not contain the embedded UI" >&2
+            exit 1
+          fi
+          grep --quiet '<!DOCTYPE html>' "${RUNNER_TEMP}/vault-ui.html"
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
